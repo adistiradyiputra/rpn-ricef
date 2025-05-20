@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: ci4_app
+    ports:
+      - "8080:80" # Akses aplikasi CI4 di localhost:8080
+    volumes:
+      - app_data:/var/www/html # Named volume untuk meningkatkan performa
+      - ./writable:/var/www/html/writable # Hanya sync folder writable agar aman
+      - ./public/uploads:/var/www/html/public/uploads # Tambahkan mount ini
+    depends_on:
+      - db
+    environment:
+      TZ: "Asia/Jakarta"
+
+  db:
+    image: mysql:8.0
+    container_name: ci4_db
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ci4_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      TZ: "Asia/Jakarta"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-config.cnf:/etc/mysql/conf.d/mysql-config.cnf # Custom MySQL config
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ci4_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8081:80"
+
+volumes:
+  app_data:
+  mysql_data:

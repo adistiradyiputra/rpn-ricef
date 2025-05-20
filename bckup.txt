@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: ci4_app
+    ports:
+      - "8080:80" # Akses aplikasi CI4 di localhost:8080
+    volumes:
+      - ./public:/var/www/html/public:delegated
+      - db
+      - phpmyadmin # Menambahkan phpMyAdmin sebagai dependensi
+
+  db:
+    image: mysql:8.0
+    container_name: ci4_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ci4_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306" # Akses database MySQL di localhost:3306
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ci4_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db # Menghubungkan phpMyAdmin ke container MySQL
+      MYSQL_ROOT_PASSWORD: root # Password root untuk MySQL
+    ports:
+      - "8081:80" # Akses phpMyAdmin di localhost:8081

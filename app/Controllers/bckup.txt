@@ -1,0 +1,149 @@
+<?php
+namespace App\Controllers;
+
+use App\Controllers\BaseController;
+use App\Models\OrganizationModel;
+use App\Models\DivisiModel;
+use App\Models\JabatanModel;
+
+class Organization extends BaseController
+{
+    protected $organizationModel;
+    protected $divisiModel;
+    protected $jabatanModel;
+
+    public function __construct()
+    {
+        $this->organizationModel = new OrganizationModel();
+        $this->divisiModel = new DivisiModel();
+        $this->jabatanModel = new JabatanModel();
+    }
+
+    public function index()
+    {
+        // Ambil semua data struktur organisasi
+        $nodesData = $this->organizationModel->getAllNodes();
+        $divisiData = $this->divisiModel->findAll();
+        $jabatanData = $this->jabatanModel->findAll();
+
+        
+        // Reindex array berdasarkan ID
+        $data['nodes'] = [];
+        foreach ($nodesData as $node) {
+            $data['nodes'][$node['id']] = $node;
+        }
+
+        $data['divisi']  = $divisiData;
+        $data['jabatan'] = $jabatanData;
+        
+        return view('v_organisasi', $data);
+    }
+
+    public function save()
+    {
+        // Tangani kasus parent_id kosong sebagai NULL atau 0
+        $parent_id = $this->request->getPost('parent_id');
+        if ($parent_id === '' || $parent_id === null) {
+            $parent_id = 0; // Atau NULL, sesuai dengan desain database
+        }
+        
+        // Handle file upload
+        $photo = $this->request->getFile('photo');
+        $photoName = '';
+        
+        if ($photo && $photo->isValid() && !$photo->hasMoved()) {
+            // Generate random name
+            $photoName = $photo->getRandomName();
+            // Move to upload folder
+            $photo->move(FCPATH . 'uploads/photos', $photoName);
+        }
+        
+        $this->organizationModel->save([
+            'parent_id' => $parent_id,
+            'name' => $this->request->getPost('name'),
+            'id_jabatan' => $this->request->getPost('id_jabatan'),
+            'id_divisi' => $this->request->getPost('id_divisi'),
+            'photo' => $photoName
+        ]);
+
+        return redirect()->to('organization');
+    }
+
+    public function delete($id)
+    {
+        // Get current photo filename to delete
+        $nodeData = $this->organizationModel->find($id);
+        
+        // Delete the file if exists
+        if (!empty($nodeData['photo'])) {
+            $filePath = FCPATH . 'uploads/photos/' . $nodeData['photo'];
+            
+            if (file_exists($filePath) && is_writable($filePath)) {
+                unlink($filePath);
+            } else {
+                log_message('error', "File tidak dapat dihapus: $filePath");
+            }
+        }
+        
+        
+        $this->organizationModel->delete($id);
+        return redirect()->to('organization')->with('message', 'Data berhasil dihapus');
+    }
+
+    public function edit($id)
+    {
+        // Get all organization data
+        $nodesData = $this->organizationModel->getAllNodes();
+        
+        // Reindex array by ID
+        $data['nodes'] = [];
+        foreach ($nodesData as $node) {
+            $data['nodes'][$node['id']] = $node;
+        }
+        
+        // Get current node data
+        $data['nodeData'] = $this->organizationModel->find($id);
+        
+        return view('v_organisasi_edit', $data);
+    }
+
+    public function update($id)
+    {
+        // Handle parent_id empty case as NULL or 0
+        $parent_id = $this->request->getPost('parent_id');
+        if ($parent_id === '' || $parent_id === null) {
+            $parent_id = 0; // Or NULL, according to your database design
+        }
+        
+        // Get current data for photo handling
+        $currentData = $this->organizationModel->find($id);
+        $photoName = $currentData['photo'];
+        
+        // Handle file upload if provided
+        $photo = $this->request->getFile('photo');
+        
+        if ($photo && $photo->isValid() && !$photo->hasMoved()) {
+            // Delete old photo if exists
+            if (!empty($currentData['photo'])) {
+                $filePath = FCPATH . 'uploads/photos/' . $currentData['photo'];
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+            }
+            
+            // Generate random name
+            $photoName = $photo->getRandomName();
+            // Move to upload folder
+            $photo->move(FCPATH . 'uploads/photos', $photoName);
+        }
+        
+        $this->organizationModel->update($id, [
+            'parent_id' => $parent_id,
+            'name' => $this->request->getPost('name'),
+            'position' => $this->request->getPost('position'),
+            'photo' => $photoName
+        ]);
+
+        return redirect()->to('organization')->with('message', 'Data berhasil diperbarui');
+    }
+}
